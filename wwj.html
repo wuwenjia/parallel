@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+svg {
+  font: 10px sans-serif;
+}
+
+.background path {
+  fill: none;
+  stroke: #ddd;
+  shape-rendering: crispEdges;
+}
+
+.foreground path {
+  fill: none;
+  stroke: steelblue;
+}
+
+.brush .extent {
+  fill-opacity: .3;
+  stroke: #fff;
+  shape-rendering: crispEdges;
+}
+
+.axis line,
+.axis path {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  cursor: move;
+}
+
+</style>
+<body>
+</body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+class Data {
+    constructor() {
+        var source = ['source1', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8', 'source9', 'source10'];
+        this.list = [];
+        for (var i = 0; i < 100; i++) {
+            var d = [];
+            d[0] = source[Math.floor(Math.random() * 10)];
+            d[1] = Math.floor(Math.random() * 50);
+            d[2] = Math.floor(Math.random() * 50);
+            d[3] = source[Math.floor(Math.random() * 10)];
+            this.list.push(d);
+        }
+    } 
+    getSource() {
+        return this.sortByFrequence(0)
+    }
+    getSPort() {
+        return this.sortByFrequence(1)
+    }
+    getDPort() {
+        return this.sortByFrequence(2)
+    }
+    getDist() {
+        return this.sortByFrequence(3)
+    }
+    sortByFrequence(index) {
+        var m = Object.create(null)
+        this.list.forEach((item) => {
+            if (typeof m[item[index]] === 'undefined') {
+                m[item[index]] = 0;
+            } else {
+                m[item[index]]++;
+            }
+        });
+        var c = Object.entries(m);
+        c.sort((a, b) => b[1] - a[1]);
+        return c.map(item => {
+            item[1] /= this.list.length
+            return item
+        });
+    }
+}
+var info = new Data();
+//console.log(info.list)
+//console.log(info.getSource());
+//console.log(info.getSPort());
+//console.log(info.getDPort());
+//console.log(info.getDist());
+var sourceValue = info.getSource(),
+    sportValue = info.getSPort(),
+    dportValue = info.getDPort(),
+    distValue = info.getDist();
+
+var margin = {top: 30, right: 10, bottom: 10, left: 10},
+    width = 960 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+var x = d3.scale.ordinal().rangePoints([0, width], 1),
+    y = {},
+    dragging = {};
+
+var line = d3.svg.line(),
+    axis = d3.svg.axis().orient("left"),
+    background,
+    foreground;
+    source = [];
+    sport = [];
+    dport = [];
+    dist = [];
+    for( let i = 0; i < sourceValue.length; i++){
+      source.push(sourceValue[i][0]);
+    }
+    for( let i = 0; i < sportValue.length; i++){
+      sport.push(sportValue[i][0]);
+    }
+    for( let i = 0; i < dportValue.length; i++){
+      dport.push(dportValue[i][0]);
+    }
+    for( let i = 0; i < distValue.length; i++){
+      dist.push(distValue[i][0]);
+    }
+//console.log(source)
+//获取范围数组
+    function _range(length){     
+      var result = [],flag = 0, average = height/length;
+      while(length){
+        result.push(flag);
+        flag += average;
+        length--;
+      }
+      return result;
+    }
+    //console.log(_range(source.length));
+    //console.log(_range(sport.length));
+
+var y1=d3.scale.ordinal().domain(source).range(_range(source.length));
+var y2=d3.scale.ordinal().domain(sport).range(_range(sport.length));
+var y3=d3.scale.ordinal().domain(dport).range(_range(dport.length));
+var y4=d3.scale.ordinal().domain(dist).range(_range(dist.length));
+y={'source':y1,'sport':y2,'dport':y3,'dist':y4};
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.csv("progress.csv", function(error, cars) {
+
+  //Extract the list of dimensions and create a scale for each.
+  x.domain(dimensions =  ['source','sport','dport','dist']);
+// x.domain(dimensions = d3.keys(cars[0]).filter(function(d) {
+//     return  (y[d] = d3.scale.ordinal ()
+//         .domain(d3.extent(cars, function(p) { return +p[d]; }))
+//         .range([30, 0]));
+//   }));
+//console.log(dimensions)
+  // Add grey background lines for context.
+  background = svg.append("g")
+      .attr("class", "background")
+    .selectAll("path")
+      .data(cars)
+    .enter().append("path")
+      .attr("d", path);
+
+  // Add blue foreground lines for focus.
+  foreground = svg.append("g")
+      .attr("class", "foreground")
+    .selectAll("path")
+      .data(cars)
+    .enter().append("path")
+      .attr("d", path);
+
+//绘制面积图表，注意需要三个参数哦，y0将原来的线型图变成了封闭的面积图咯！  
+var scale_x = d3.scale.linear()  
+    .domain([0,1])  
+    .range([10,0]) 
+var x_axis =  d3.svg.axis().scale(scale_x).orient("top");
+var m=axis.scale(y['source']);
+svg.append("g")  
+    .call(x_axis)  
+ 
+var myArea = d3.svg.area()  
+    .x(function (d,i) {  
+        return scale_x(i)  
+    })  
+    .y0(504)   
+    .y1(function(d){  
+        return y1(d)  
+    })  
+    .interpolate("cardinal")  
+  
+d3.select("g")  
+    .append("path")  
+    .attr("d",myArea(sourceValue))  
+    .style("fill","blue") 
+    .attr("transform","translate(110,"+0+")")  
+console.log(sourceValue)
+  // Add a group element for each dimension.
+  var g = svg.selectAll(".dimension")
+      .data(dimensions)
+    .enter().append("g")
+      .attr("class", "dimension")
+      .attr("transform", function(d) { return "translate(" + x(d) + ")"; })
+      .call(d3.behavior.drag()
+        .origin(function(d) { return {x: x(d)}; })
+        .on("dragstart", function(d) {
+          dragging[d] = x(d);
+          background.attr("visibility", "hidden");
+        })
+        .on("drag", function(d) {
+          dragging[d] = Math.min(width, Math.max(0, d3.event.x));
+          foreground.attr("d", path);
+          dimensions.sort(function(a, b) { return position(a) - position(b); });
+          x.domain(dimensions);
+          g.attr("transform", function(d) { return "translate(" + position(d) + ")"; })
+        })
+        .on("dragend", function(d) {
+          delete dragging[d];
+          transition(d3.select(this)).attr("transform", "translate(" + x(d) + ")");
+          transition(foreground).attr("d", path);
+          background
+              .attr("d", path)
+            .transition()
+              .delay(500)
+              .duration(0)
+              .attr("visibility", null);
+        }));
+
+  // Add an axis and title.
+  g.append("g")
+      .attr("class", "axis")
+      .each(function(d) { d3.select(this).call(axis.scale(y[d])); })
+    .append("text")
+      .style("text-anchor", "middle")
+      .attr("y", -9)
+      .text(function(d) { return d; });
+
+  // Add and store a brush for each axis.
+  g.append("g")
+      .attr("class", "brush")
+      .each(function(d) {
+        d3.select(this).call(y[d].brush = d3.svg.brush().y(y[d]).on("brushstart", brushstart).on("brush", brush));
+      })
+    .selectAll("rect")
+      .attr("x", -8)
+      .attr("width", 16);
+});
+
+function position(d) {
+  var v = dragging[d];
+  return v == null ? x(d) : v;
+}
+
+function transition(g) {
+  return g.transition().duration(500);
+}
+
+// Returns the path for a given data point.
+function path(d) {
+  return line(dimensions.map(function(p) { return [position(p), y[p](d[p])]; }));
+}
+
+function brushstart() {
+  d3.event.sourceEvent.stopPropagation();
+}
+
+// Handles a brush event, toggling the display of foreground lines.
+function brush() {
+  var actives = dimensions.filter(function(p) { return !y[p].brush.empty(); }),
+      extents = actives.map(function(p) { return y[p].brush.extent(); });
+  foreground.style("display", function(d) {
+    return actives.every(function(p, i) {
+      return extents[i][0] <= d[p] && d[p] <= extents[i][1];
+    }) ? null : "none";
+  });
+}
+
+
+
+</script>
